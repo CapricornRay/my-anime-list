@@ -8,29 +8,28 @@
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
-        
-        /* 页面顶部预留出悬浮栏的高度 */
-        .content-wrapper { padding-top: 120px; }
+        .content-wrapper { padding-top: 100px; }
 
+        /* 基础卡片样式 */
         .anime-card {
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             filter: grayscale(100%) brightness(0.4);
             opacity: 0.7;
+            display: flex;
+            flex-direction: column;
         }
         
         .anime-card.active {
             filter: grayscale(0%) brightness(1);
             opacity: 1;
-            transform: scale(1.05);
-            z-index: 10;
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
         }
 
-        /* 粘性年份标题 - 权重需低于悬浮导航栏 */
+        /* 粘性标题 */
         .year-header {
             position: sticky;
-            top: 100px; /* 紧贴在悬浮栏下方 */
+            top: 72px; 
             background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(12px);
             z-index: 30;
@@ -38,177 +37,99 @@
             border-bottom: 1px solid #1e293b;
         }
 
-        .title-overlay {
-            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+        /* 标题常驻显示：平时模式 */
+        .anime-title {
+            font-size: 0.75rem;
+            line-height: 1.1;
+            padding: 4px;
+            text-align: center;
+            background: rgba(0,0,0,0.6);
+            width: 100%;
+            /* 平时限制两行 */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         .btn-active { background-color: #ec4899 !important; color: white !important; }
 
-        /* 等级勋章动画 */
-        .rank-badge {
-            transition: all 0.5s ease;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        /* --- 核心：导出专用样式补丁 --- */
+        /* 强制 10 列小图布局 */
+        .export-small-active .anime-grid {
+            grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+            gap: 6px !important;
         }
+        /* 导出时文本显示完整 */
+        .export-small-active .anime-title {
+            -webkit-line-clamp: unset !important; /* 取消行数限制 */
+            display: block !important;
+            overflow: visible !important;
+            font-size: 10px !important; /* 强制较小但清晰的字体 */
+            word-break: break-all;
+            background: #1e293b; /* 导出时使用实色背景，防止文字重叠 */
+        }
+        /* 导出时取消粘性定位，防止错位 */
+        .export-small-active .year-header { position: static !important; }
 
-        .size-small .anime-title { font-size: 0.6rem; line-height: 0.75rem; }
-        .size-medium .anime-title { font-size: 0.75rem; line-height: 1rem; }
-        .size-large .anime-title { font-size: 0.9rem; line-height: 1.1rem; }
+        .size-small .anime-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+        .size-medium .anime-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .size-large .anime-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-        /* 隐藏滚动条但保留功能 */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        @media (max-width: 640px) {
+            .size-small .anime-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .size-medium .anime-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .size-large .anime-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
     </style>
 </head>
 <body class="p-4 md:p-10">
 
-    <!-- 顶部悬浮控制中心 -->
-    <!-- 1. 修改后的导航栏 (解决文字看不见) -->
-<nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 shadow-2xl">
-    <div class="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between">
-        <!-- 统计 -->
-        <div class="flex items-center gap-3">
-            <div class="flex flex-col">
-                <span class="text-[8px] uppercase tracking-tighter text-slate-500 font-bold">Watched</span>
-                <span class="text-xl font-mono font-black text-white" id="stats-count">0</span>
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 shadow-2xl">
+        <div class="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col">
+                    <span class="text-[8px] uppercase text-slate-500 font-bold">看过</span>
+                    <span class="text-xl font-mono font-black text-white" id="stats-count">0</span>
+                </div>
+                <div id="rank-container" class="rank-badge px-3 py-1 rounded-lg border font-black italic text-xs md:text-sm">-</div>
             </div>
-            <div id="rank-container" class="rank-badge px-3 py-1 rounded-lg border font-black italic text-xs md:text-sm">
-                -
+
+            <div class="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700">
+                <button onclick="changeSize('small')" id="btn-small" class="px-3 py-1 text-[10px] rounded-lg transition">小</button>
+                <button onclick="changeSize('medium')" id="btn-medium" class="px-3 py-1 text-[10px] rounded-lg btn-active transition">中</button>
+                <button onclick="changeSize('large')" id="btn-large" class="px-3 py-1 text-[10px] rounded-lg transition">大</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="saveWatchedOnly()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl font-bold text-xs">清单导出</button>
+                <button onclick="saveFullImage()" id="export-btn" class="flex items-center gap-1 bg-pink-600 hover:bg-pink-500 text-white px-3 py-2 rounded-xl font-bold text-xs transition">
+                    <span>全量导出</span>
+                    <div id="loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                </button>
             </div>
         </div>
-
-        <!-- 尺寸 (手机端隐藏，保持简洁) -->
-        <div class="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700 mx-2">
-            <button onclick="changeSize('small')" id="btn-small" class="px-3 py-1 text-[10px] rounded-lg transition">小</button>
-            <button onclick="changeSize('medium')" id="btn-medium" class="px-3 py-1 text-[10px] rounded-lg btn-active transition">中</button>
-            <button onclick="changeSize('large')" id="btn-large" class="px-3 py-1 text-[10px] rounded-lg transition">大</button>
-        </div>
-
-        <!-- 导出按钮 (适配文字显示) -->
-        <button onclick="saveAsImage()" id="export-btn" class="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-xl font-bold text-xs transition">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span class="inline">保存长图</span> <!-- 删除了 hidden 类 -->
-            <div id="loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
-        </button>
-    </div>
-</nav>
+    </nav>
 
     <div class="max-w-7xl mx-auto content-wrapper">
-        <!-- 页面主标题 -->
-        <header class="text-center mb-12">
-            <h1 class="text-6xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-4">
-                动画番剧资历测试
-            </h1>
-            <p class="text-slate-500 font-mono tracking-widest text-sm">CHRONICLE 1998 - 2026</p>
-        </header>
-
-        <!-- 采集区域 -->
-        <div id="capture-area" class="bg-[#0f172a] p-6 rounded-3xl">
-            <!-- 导出时显示的精美水印头部 -->
-            <div class="hidden show-on-export flex justify-between items-center mb-12 border-b-2 border-slate-800 pb-8">
-                <div>
-                    <h2 class="text-5xl font-black italic text-pink-500 tracking-tighter">MY ANIME ERA</h2>
-                    <p class="text-slate-400 font-mono mt-2 uppercase tracking-[0.3em]">Checked List 1998-2026</p>
-                </div>
-                <div class="bg-slate-900 border-2 border-pink-500/30 p-4 rounded-2xl text-right">
-                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Level Status</p>
-                    <p id="export-rank-text" class="text-3xl font-black italic"></p>
-                    <p class="text-pink-500 font-mono text-xs mt-1">Total: <span id="export-count-text"></span></p>
+        <div id="capture-area" class="bg-[#0f172a] p-4 rounded-3xl">
+            <!-- 导出水印 -->
+            <div id="export-watermark" class="hidden flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
+                <h2 class="text-3xl font-black italic text-pink-500">动画番剧资历清单</h2>
+                <div class="text-right">
+                    <p id="export-rank-text" class="text-xl font-black italic text-white"></p>
+                    <p class="text-slate-500 text-[10px]">Total Watched: <span id="export-count-text"></span></p>
                 </div>
             </div>
 
-            <div id="main-list" class="space-y-16">
-                <!-- 数据动态注入 -->
-            </div>
-
-            <div class="mt-20 pt-10 border-t border-slate-800 text-center text-slate-700 italic font-mono text-sm">
-                Generated by Anime Checklist • Stay Weeb
-            </div>
+            <div id="main-list" class="space-y-10"></div>
         </div>
     </div>
-<script>
-    // 2. 性能极致优化版的保存函数
-    async function saveAsImage() {
-        const btn = document.getElementById('export-btn');
-        const loader = document.getElementById('loader');
-        const area = document.getElementById('capture-area');
 
-        // 手机端判断
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        btn.disabled = true;
-        loader.classList.remove('hidden');
-        
-        // --- 核心优化 A: 临时策略 ---
-        // 记录当前所有未点亮的卡片，并临时隐藏图片以释放内存
-        const allCards = document.querySelectorAll('.anime-card');
-        const unlitImages = [];
-        
-        // 如果是手机端，为了速度，只渲染已点亮的图片
-        allCards.forEach(card => {
-            if (!card.classList.contains('active')) {
-                const img = card.querySelector('img');
-                unlitImages.push({ parent: card, img: img, src: img.src });
-                img.style.display = 'none'; // 隐藏未点亮图片，大幅提升渲染速度
-                card.style.backgroundColor = '#1e293b'; // 给个深色底防止空白
-            }
-        });
-
-        // 显示水印头
-        const exportHeader = area.querySelector('.show-on-export');
-        exportHeader.classList.remove('hidden');
-
-        try {
-            const canvas = await html2canvas(area, {
-                useCORS: true,
-                backgroundColor: '#0f172a',
-                scale: isMobile ? 1 : 1.5, // 手机端强制 1 倍率，电脑 1.5
-                logging: false,
-                imageTimeout: 0,
-                // 限制宽度，防止超大尺寸
-                windowWidth: area.scrollWidth,
-                windowHeight: area.scrollHeight
-            });
-
-            // 导出
-            const link = document.createElement('a');
-            link.download = `AnimeEra-Share-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png', 0.8); // 0.8 质量压缩
-            link.click();
-
-        } catch (err) {
-            console.error(err);
-            alert("生成失败。提示：请尝试减少点亮数量或使用电脑浏览器。");
-        } finally {
-            // --- 核心优化 B: 恢复页面状态 ---
-            unlitImages.forEach(item => {
-                item.img.style.display = 'block';
-            });
-            exportHeader.classList.add('hidden');
-            btn.disabled = false;
-            loader.classList.add('hidden');
-        }
-    }
-</script>
     <script>
         const STORAGE_KEY = 'anime_watched_list_v5';
         let watchedIds = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         let currentSize = 'medium';
-
-        const sizeMap = {
-            'small': 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 size-small',
-            'medium': 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 size-medium',
-            'large': 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 size-large'
-        };
-
-        function getRankInfo(count) {
-            if (count <= 50) return { label: "拉完了", color: "border-slate-600 text-slate-400 bg-slate-800/50" };
-            if (count <= 200) return { label: "NPC", color: "border-blue-500/50 text-blue-400 bg-blue-900/20" };
-            if (count <= 300) return { label: "人上人", color: "border-yellow-500/50 text-yellow-500 bg-yellow-900/20" };
-            if (count <= 500) return { label: "顶级", color: "border-purple-500/50 text-purple-400 bg-purple-900/20" };
-            return { label: "夯", color: "border-red-600 text-red-500 bg-red-900/30" };
-        }
 
         async function init() {
             try {
@@ -218,56 +139,37 @@
                 
                 data.forEach(yearGroup => {
                     const section = document.createElement('section');
+                    section.className = `year-section ${currentSize === 'small' ? 'size-small' : currentSize === 'large' ? 'size-large' : 'size-medium'}`;
                     section.innerHTML = `
                         <div class="year-header">
-                            <h2 class="text-3xl font-black italic tracking-tighter">
-                                <span class="text-pink-500 mr-2">#</span>${yearGroup.year}
-                            </h2>
+                            <h2 class="text-2xl font-black italic tracking-tighter"><span class="text-pink-500">#</span> ${yearGroup.year}</h2>
                         </div>
-                        <div class="anime-grid grid ${sizeMap[currentSize]} mt-8 transition-all duration-700">
+                        <div class="anime-grid grid mt-4">
                             ${yearGroup.animes.map(anime => renderCard(anime)).join('')}
                         </div>
                     `;
                     container.appendChild(section);
                 });
                 updateStats();
-            } catch (err) {
-                console.error("加载数据失败:", err);
-            }
+            } catch (err) { console.error(err); }
         }
 
         function renderCard(anime) {
             const isWatched = watchedIds.includes(anime.id);
-            // 检查图片地址是否有效
-            const coverUrl = anime.cover || 'https://via.placeholder.com/150x210?text=No+Image';
-            
             return `
-            <div class="anime-card ${isWatched ? 'active' : ''} relative aspect-[3/4.2] rounded-xl overflow-hidden bg-slate-800" 
-             onclick="toggleLit(${anime.id}, this)">
-            <img src="${coverUrl}" 
-                 alt="${anime.title}"
-                 class="w-full h-full object-cover" 
-                 loading="lazy"
-                 referrerpolicy="no-referrer"
-                 onerror="this.src='https://via.placeholder.com/150x210?text=Error'">
-            <div class="title-overlay absolute inset-x-0 bottom-0 p-3 pt-8 flex items-end justify-center text-center">
-                <span class="anime-title text-white font-black leading-tight line-clamp-2 drop-shadow-2xl">
-                    ${anime.title}
-                </span>
-            </div>
-            </div>
+                <div class="anime-card ${isWatched ? 'active' : ''}" onclick="toggleLit(${anime.id}, this)">
+                    <div class="aspect-[3/4.2] overflow-hidden rounded-t-lg bg-slate-800">
+                        <img src="${anime.cover}" class="w-full h-full object-cover" loading="lazy" crossorigin="anonymous">
+                    </div>
+                    <div class="anime-title text-white rounded-b-lg font-medium">${anime.title}</div>
+                </div>
             `;
         }
 
         function toggleLit(id, el) {
             const idx = watchedIds.indexOf(id);
-            if (idx > -1) {
-                watchedIds.splice(idx, 1);
-                el.classList.remove('active');
-            } else {
-                watchedIds.push(id);
-                el.classList.add('active');
-            }
+            if (idx > -1) { watchedIds.splice(idx, 1); el.classList.remove('active'); } 
+            else { watchedIds.push(id); el.classList.add('active'); }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(watchedIds));
             updateStats();
         }
@@ -276,55 +178,98 @@
             const count = watchedIds.length;
             document.getElementById('stats-count').innerText = count;
             document.getElementById('export-count-text').innerText = count;
-
-            const rank = getRankInfo(count);
+            const rank = (count <= 50) ? {l:"拉完了",c:"text-slate-400"} : (count <= 200) ? {l:"NPC",c:"text-blue-400"} : (count <= 300) ? {l:"人上人",c:"text-yellow-400"} : (count <= 500) ? {l:"顶级",c:"text-purple-400"} : {l:"夯",c:"text-red-500"};
             const rankEl = document.getElementById('rank-container');
-            rankEl.innerText = rank.label;
-            rankEl.className = `rank-badge px-4 py-1.5 rounded-xl border-2 font-black italic tracking-wider text-sm md:text-base ${rank.color}`;
-            
-            document.getElementById('export-rank-text').innerText = rank.label;
-            document.getElementById('export-rank-text').className = `text-3xl font-black italic ${rank.color.split(' ')[1]}`;
+            rankEl.innerText = rank.l; rankEl.className = `rank-badge px-3 py-1 rounded-lg border font-black italic text-xs ${rank.c}`;
+            document.getElementById('export-rank-text').innerText = rank.l;
+            document.getElementById('export-rank-text').className = `text-xl font-black italic ${rank.c}`;
         }
 
         function changeSize(size) {
             currentSize = size;
-            ['small', 'medium', 'large'].forEach(s => {
-                document.getElementById(`btn-${s}`).classList.toggle('btn-active', s === size);
-            });
-            document.querySelectorAll('.anime-grid').forEach(g => {
-                g.className = `anime-grid grid ${sizeMap[size]} mt-8 transition-all duration-700`;
+            ['small', 'medium', 'large'].forEach(s => document.getElementById(`btn-${s}`).classList.toggle('btn-active', s === size));
+            document.querySelectorAll('.year-section').forEach(s => {
+                s.classList.remove('size-small', 'size-medium', 'size-large');
+                s.classList.add(`size-${size}`);
             });
         }
 
-        async function saveAsImage() {
+        // --- 功能：全量导出（强制小尺寸 + 文本完整） ---
+        async function saveFullImage() {
             const btn = document.getElementById('export-btn');
-            const loader = document.getElementById('loader');
             const area = document.getElementById('capture-area');
-
             btn.disabled = true;
-            loader.classList.remove('hidden');
-            const exportHeader = area.querySelector('.show-on-export');
-            exportHeader.classList.remove('hidden');
+            document.getElementById('loader').classList.remove('hidden');
+            
+            // 记录未点亮图片以便恢复
+            const unlitImages = [];
+            document.querySelectorAll('.anime-card').forEach(card => {
+                if (!card.classList.contains('active')) {
+                    const img = card.querySelector('img');
+                    unlitImages.push(img);
+                    img.style.visibility = 'hidden';
+                }
+            });
+
+            // 1. 开启导出模式（CSS将强制 10 列并展开文字）
+            area.classList.add('export-small-active');
+            document.getElementById('export-watermark').classList.remove('hidden');
 
             try {
                 const canvas = await html2canvas(area, {
                     useCORS: true,
                     backgroundColor: '#0f172a',
-                    scale: 1.5,
-                    logging: false,
+                    scale: 1.2, // 稍微降低倍率提高成功率
                     windowWidth: 1400 
                 });
-
                 const link = document.createElement('a');
-                link.download = `AnimeEra-${document.getElementById('rank-container').innerText}-${Date.now()}.png`;
+                link.download = `Full_Archive_${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png', 0.8);
+                link.click();
+            } finally {
+                // 还原
+                area.classList.remove('export-small-active');
+                unlitImages.forEach(img => img.style.visibility = 'visible');
+                document.getElementById('export-watermark').classList.add('hidden');
+                btn.disabled = false;
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+
+        // --- 功能：清单导出（强制小尺寸 + 文本完整） ---
+        async function saveWatchedOnly() {
+            const watchedCards = document.querySelectorAll('.anime-card.active');
+            if (watchedCards.length === 0) return alert("空空如也~");
+
+            const tempDiv = document.createElement('div');
+            tempDiv.className = "bg-[#0f172a] p-8 rounded-3xl export-small-active"; // 同样应用强制样式
+            tempDiv.style.width = "1200px";
+            tempDiv.style.position = "absolute";
+            tempDiv.style.left = "-9999px";
+
+            const header = document.getElementById('export-watermark').cloneNode(true);
+            header.classList.remove('hidden');
+            tempDiv.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.className = "anime-grid grid grid-cols-10 gap-2 mt-4"; // 强制 10 列
+            watchedCards.forEach(card => {
+                const clone = card.cloneNode(true);
+                clone.style.filter = "none";
+                clone.style.opacity = "1";
+                grid.appendChild(clone);
+            });
+            tempDiv.appendChild(grid);
+            document.body.appendChild(tempDiv);
+
+            try {
+                const canvas = await html2canvas(tempDiv, { useCORS: true, scale: 1.5 });
+                const link = document.createElement('a');
+                link.download = `Watched_List_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
-            } catch (err) {
-                alert("生成长图失败，建议尝试切换‘中’或‘大’尺寸再次生成。");
             } finally {
-                exportHeader.classList.add('hidden');
-                btn.disabled = false;
-                loader.classList.add('hidden');
+                document.body.removeChild(tempDiv);
             }
         }
 
