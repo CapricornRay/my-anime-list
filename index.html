@@ -200,8 +200,13 @@
             }
 
             .anime-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 8px;
+            }
+
+            .anime-title {
+                font-size: 0.68rem;
+                min-height: 2.7em;
             }
 
             .year-header {
@@ -757,14 +762,42 @@
         return { canvas, count, failed: warmResult.failed, filename: `${EXPORT_PRESET.filePrefix}-${Date.now()}.png` };
     }
 
-    async function saveCanvas(canvas, filename) {
-        const blob = await new Promise((resolve, reject) => {
+    async function canvasToBlob(canvas) {
+        return await new Promise((resolve, reject) => {
             canvas.toBlob((result) => {
                 if (result) resolve(result);
                 else reject(new Error("图片导出失败。"));
             }, "image/png");
         });
+    }
 
+    async function copyBlobToClipboard(blob) {
+        if (!window.isSecureContext || !navigator.clipboard || typeof ClipboardItem === "undefined") {
+            return {
+                ok: false,
+                reason: "当前浏览器不支持图片写入剪贴板。"
+            };
+        }
+
+        try {
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    "image/png": blob
+                })
+            ]);
+            return {
+                ok: true,
+                reason: ""
+            };
+        } catch (error) {
+            return {
+                ok: false,
+                reason: "浏览器拒绝了剪贴板写入。"
+            };
+        }
+    }
+
+    function downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -789,9 +822,19 @@
 
         try {
             const { canvas, count, failed, filename } = await renderExportCanvas(mode);
-            setStatus("正在生成下载文件...");
-            await saveCanvas(canvas, filename);
-            setStatus(`导出完成：${filename}，范围：${mode === "watched" ? "仅看过" : "全部"}，共 ${count} 项${failed ? `，${failed} 张封面使用了占位图` : ""}。`);
+            setStatus("正在写入剪贴板并下载文件...");
+            const blob = await canvasToBlob(canvas);
+            const clipboardResult = await copyBlobToClipboard(blob);
+            downloadBlob(blob, filename);
+
+            const baseMessage = `导出完成：${filename}，范围：${mode === "watched" ? "仅看过" : "全部"}，共 ${count} 项${failed ? `，${failed} 张封面使用了占位图` : ""}。`;
+            if (clipboardResult.ok) {
+                setStatus(`${baseMessage} 图片已复制到剪贴板，可直接粘贴使用。`);
+                alert("图片已下载，并已复制到剪贴板。你现在可以直接粘贴到聊天窗口、文档或画板里。");
+            } else {
+                setStatus(`${baseMessage} 已下载文件，但未能复制到剪贴板。`);
+                alert(`图片已下载。\n\n未能复制到剪贴板：${clipboardResult.reason}\n如果你在 GitHub Pages 或非 HTTPS 环境使用，浏览器通常会拒绝图片剪贴板写入。`);
+            }
         } catch (error) {
             console.error(error);
             setStatus(error.message || "导出失败。", true);
