@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <meta name="renderer" content="webkit">
+    <title>1998-2026 你看过的动画番剧</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --page-max-width: 1320px;
+            --bg-1: #020617;
+            --bg-2: #0f172a;
+            --panel: rgba(15, 23, 42, 0.76);
+            --panel-border: rgba(51, 65, 85, 0.82);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #ec4899;
+        }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at top, rgba(236, 72, 153, 0.16), transparent 28%),
+                linear-gradient(180deg, #111827 0%, var(--bg-2) 42%, var(--bg-1) 100%);
+            color: var(--text-main);
+            font-family: "Microsoft YaHei", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .content-wrapper {
+            padding-top: 96px;
+            padding-bottom: 40px;
+        }
+
+        .topbar {
+            background: rgba(2, 6, 23, 0.88);
+            border-bottom: 1px solid rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .toolbar-card,
+        .stats-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+        }
+
+        .stats-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.28em;
+            font-size: clamp(10px, 1.4vw, 12px);
+            font-weight: 800;
+        }
+
+        .stats-value {
+            margin-top: 6px;
+            font-size: clamp(1.6rem, 2.8vw, 2.8rem);
+            line-height: 0.95;
+            font-weight: 900;
+        }
+
+        .stats-rank {
+            margin-top: 6px;
+            font-size: clamp(0.92rem, 1.5vw, 1.35rem);
+            line-height: 1;
+            font-weight: 900;
+            font-style: italic;
+        }
+
+        .floating-stats {
+            position: fixed;
+            top: 88px;
+            right: max(4px, calc((100vw - var(--page-max-width)) / 2 + 4px));
+            width: min(200px, calc(100vw - 20px));
+            z-index: 35;
+            display: grid;
+            gap: 10px;
+        }
+
+        .anime-card {
+            cursor: pointer;
+            transition: transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+            filter: grayscale(100%) brightness(0.42);
+            opacity: 0.72;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .anime-card.active {
+            filter: grayscale(0%) brightness(1);
+            opacity: 1;
+            box-shadow: 0 0 18px rgba(236, 72, 153, 0.32);
+        }
+
+        .anime-card:active {
+            transform: scale(0.98);
+        }
+
+        .anime-title {
+            font-size: 0.62rem;
+            line-height: 1.15;
+            padding: 4px 3px;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.86);
+            width: 100%;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 2.4em;
+        }
+
+        .year-header {
+            position: sticky;
+            top: 78px;
+            z-index: 20;
+            padding: 0.7rem 0;
+            background: rgba(2, 6, 23, 0.78);
+            border-bottom: 1px solid #1e293b;
+            backdrop-filter: blur(14px);
+        }
+
+        .anime-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+        }
+
+        .save-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #ec4899, #be185d);
+            color: white;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 0.72rem 1rem;
+            box-shadow: 0 14px 30px rgba(236, 72, 153, 0.22);
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-panel {
+            width: min(360px, 100%);
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1px solid rgba(51, 65, 85, 0.95);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+        }
+
+        .modal-option {
+            width: 100%;
+            border-radius: 16px;
+            border: 1px solid rgba(71, 85, 105, 0.9);
+            background: rgba(30, 41, 59, 0.72);
+            color: #f8fafc;
+            text-align: left;
+            padding: 14px 16px;
+            transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+        }
+
+        .modal-option:active {
+            transform: scale(0.985);
+        }
+
+        .modal-option.primary {
+            border-color: rgba(236, 72, 153, 0.7);
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.22), rgba(190, 24, 93, 0.16));
+        }
+
+        @media (max-width: 900px) {
+            .anime-grid {
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+            }
+
+            .floating-stats {
+                width: 168px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .content-wrapper {
+                padding-top: 88px;
+                padding-right: 126px;
+            }
+
+            .anime-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .year-header {
+                top: 74px;
+            }
+
+            .floating-stats {
+                top: 76px;
+                right: 4px;
+                width: 118px;
+                gap: 6px;
+            }
+
+            .stats-card {
+                border-radius: 14px;
+                padding: 10px 8px;
+            }
+
+            .stats-label {
+                font-size: 8px;
+                letter-spacing: 0.18em;
+            }
+
+            .stats-value {
+                margin-top: 4px;
+                font-size: 1.2rem;
+            }
+
+            .stats-rank {
+                margin-top: 4px;
+                font-size: 0.78rem;
+            }
+        }
+
+        @media (min-width: 960px) {
+            .content-wrapper {
+                padding-right: 238px;
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 959px) {
+            .content-wrapper {
+                padding-right: 176px;
+            }
+        }
+    </style>
+</head>
+<body>
+<nav class="fixed top-0 left-0 right-0 z-50 topbar">
+    <div class="max-w-[var(--page-max-width)] mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.35em] text-slate-500 font-bold">Anime Memory</p>
+            <h1 class="text-lg sm:text-xl font-black tracking-tight">1998-2026 你看过的动画番剧</h1>
+        </div>
+        <button onclick="openExportDialog()" id="export-btn" class="save-button">
+            <span>保存图片</span>
+            <div id="loader" class="hidden animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></div>
+        </button>
+    </div>
+</nav>
+
+<div id="export-modal" class="modal-backdrop hidden" onclick="handleModalBackdrop(event)">
+    <div class="modal-panel p-4" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="text-[11px] uppercase tracking-[0.28em] text-slate-500 font-bold">Export</p>
+                <h2 id="export-modal-title" class="mt-1 text-lg font-black">选择导出范围</h2>
+            </div>
+            <button type="button" onclick="closeExportDialog()" class="text-slate-400 text-xl leading-none px-2">×</button>
+        </div>
+        <div class="mt-4 grid gap-3">
+            <button type="button" onclick="confirmExport('all')" class="modal-option primary">
+                <span class="block text-sm font-black">导出全部</span>
+                <span class="mt-1 block text-[11px] text-slate-300">输出整个页面的全部动画封面和年份分组。</span>
+            </button>
+            <button type="button" onclick="confirmExport('watched')" class="modal-option">
+                <span class="block text-sm font-black">仅导出看过的</span>
+                <span class="mt-1 block text-[11px] text-slate-300">只输出已勾选动画，速度更快，图片更短。</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<aside class="floating-stats">
+    <article class="stats-card rounded-[24px] px-5 py-5 text-center">
+        <p class="stats-label">观看数</p>
+        <p id="stats-count" class="stats-value">0</p>
+    </article>
+    <article class="stats-card rounded-[24px] px-5 py-5 text-center">
+        <p class="stats-label">评分</p>
+        <p id="rank-container" class="stats-rank">-</p>
+    </article>
+</aside>
+
+<main class="max-w-[var(--page-max-width)] mx-auto content-wrapper px-4">
+    <section class="toolbar-card mb-5 rounded-[24px] px-4 py-3 text-center text-xs text-slate-300">
+        <p>※片单取自ANILIST网站历年排名TOP30，仅供娱乐请勿当真。</p>
+        <p id="export-status" class="mt-2 text-[11px] text-slate-400">就绪。</p>
+    </section>
+
+    <div id="main-list" class="space-y-8"></div>
+</main>
+
+<script>
+    const STORAGE_KEY = "anime_watched_list_v5";
+    const FALLBACK_COVER = "https://via.placeholder.com/150x210?text=No+Image";
+    const EXPORT_PRESET = {
+        columns: 10,
+        cardWidth: 92,
+        cardHeight: 128,
+        titleHeight: 34,
+        gap: 8,
+        headerHeight: 96,
+        yearHeight: 30,
+        sectionGap: 18,
+        pagePadding: 24,
+        preferredScale: 1,
+        filePrefix: "anime-page"
+    };
+
+    let watchedIds = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    let animeData = [];
+    let exportInProgress = false;
+    const remoteImagePromises = new Map();
+
+    async function init() {
+        try {
+            const response = await fetch("anime_data.json");
+            animeData = await response.json();
+            renderList();
+            updateStats();
+        } catch (error) {
+            console.error("Data Load Error:", error);
+            setStatus("加载 anime_data.json 失败。", true);
+        }
+    }
+
+    function renderList() {
+        const container = document.getElementById("main-list");
+        container.innerHTML = "";
+
+        animeData.forEach((yearGroup) => {
+            if (!yearGroup.animes || yearGroup.animes.length === 0) return;
+            const section = document.createElement("section");
+            section.innerHTML = `
+                <div class="year-header">
+                    <h2 class="text-xl sm:text-2xl font-black italic tracking-tight"><span class="text-pink-500">#</span> ${yearGroup.year}</h2>
+                </div>
+                <div class="anime-grid mt-4">
+                    ${yearGroup.animes.map((anime) => renderCard(anime)).join("")}
+                </div>
+            `;
+            container.appendChild(section);
+        });
+    }
+
+    function renderCard(anime) {
+        const isWatched = watchedIds.includes(anime.id);
+        const coverUrl = anime.cover || FALLBACK_COVER;
+
+        return `
+            <div class="anime-card ${isWatched ? "active" : ""} relative aspect-[3/4.2] rounded-xl overflow-hidden bg-slate-800"
+                 data-anime-id="${anime.id}"
+                 onclick="toggleLit(${anime.id}, this)">
+                <img src="${coverUrl}"
+                     alt="${anime.title}"
+                     class="w-full h-full object-cover"
+                     loading="lazy"
+                     referrerpolicy="no-referrer"
+                     onerror="this.src='${FALLBACK_COVER}'">
+                <div class="title-overlay absolute inset-x-0 bottom-0 p-2 pt-7 flex items-end justify-center text-center">
+                    <span class="anime-title text-white font-black leading-tight drop-shadow-2xl">
+                        ${anime.title}
+                    </span>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleLit(id, element) {
+        const index = watchedIds.indexOf(id);
+        if (index > -1) {
+            watchedIds.splice(index, 1);
+            element.classList.remove("active");
+        } else {
+            watchedIds.push(id);
+            element.classList.add("active");
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(watchedIds));
+        updateStats();
+    }
+
+    function getRank(count) {
+        if (count <= 50) return { label: "千岁同学级", color: "#94a3b8" };
+        if (count <= 150) return { label: "异世界舅舅级", color: "#60a5fa" };
+        if (count <= 300) return { label: "卢迪乌斯级", color: "#facc15" };
+        if (count <= 600) return { label: "精灵魔法使级", color: "#c084fc" };
+        return { label: "你到底是什么人", color: "#f43f5e" };
+    }
+
+    function updateStats() {
+        const count = watchedIds.length;
+        const rank = getRank(count);
+        document.getElementById("stats-count").innerText = count;
+
+        const rankEl = document.getElementById("rank-container");
+        rankEl.innerText = rank.label;
+        rankEl.style.color = rank.color;
+    }
+
+    function setStatus(message, isError = false) {
+        const status = document.getElementById("export-status");
+        status.innerText = message;
+        status.className = `mt-2 text-[11px] ${isError ? "text-rose-400" : "text-slate-400"}`;
+    }
+
+    function openExportDialog() {
+        if (exportInProgress) return;
+        document.getElementById("export-modal").classList.remove("hidden");
+    }
+
+    function closeExportDialog() {
+        document.getElementById("export-modal").classList.add("hidden");
+    }
+
+    function handleModalBackdrop(event) {
+        if (event.target.id === "export-modal") {
+            closeExportDialog();
+        }
+    }
+
+    async function confirmExport(mode) {
+        closeExportDialog();
+        await exportPageImage(mode);
+    }
+
+    function getExportSections(mode) {
+        const watchedSet = new Set(watchedIds);
+        return animeData
+            .map((yearGroup) => {
+                const source = yearGroup.animes || [];
+                const animes = mode === "watched"
+                    ? source.filter((anime) => watchedSet.has(anime.id))
+                    : source;
+                return {
+                    year: yearGroup.year,
+                    animes
+                };
+            })
+            .filter((group) => group.animes.length > 0);
+    }
+
+    function createImageFromBlob(blob) {
+        return new Promise((resolve, reject) => {
+            const objectUrl = URL.createObjectURL(blob);
+            const image = new Image();
+            image.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(image);
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error("blob image load failed"));
+            };
+            image.src = objectUrl;
+        });
+    }
+
+    function isCanvasSafeSource(url) {
+        return url.startsWith("data:") || url.startsWith("blob:") || url.startsWith(window.location.origin);
+    }
+
+    async function loadRemoteImage(url) {
+        try {
+            const response = await fetch(url, { mode: "cors", cache: "force-cache" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            if ("createImageBitmap" in window) {
+                return await createImageBitmap(blob);
+            }
+            return await createImageFromBlob(blob);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function getVisibleImageElement(animeId) {
+        const image = document.querySelector(`[data-anime-id="${animeId}"] img`);
+        if (!image || !image.complete || image.naturalWidth === 0) return null;
+        if (!isCanvasSafeSource(image.currentSrc || image.src || "")) return null;
+        return image;
+    }
+
+    async function getRenderableImage(anime) {
+        const fromDom = getVisibleImageElement(anime.id);
+        if (fromDom) return fromDom;
+
+        const url = anime.cover;
+        if (!url) return null;
+        if (!remoteImagePromises.has(url)) {
+            remoteImagePromises.set(url, loadRemoteImage(url));
+        }
+        return await remoteImagePromises.get(url);
+    }
+
+    function yieldToBrowser() {
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    async function warmExportImages(sections, onProgress) {
+        const uniqueAnimes = [];
+        const seen = new Set();
+
+        sections.forEach((group) => {
+            group.animes.forEach((anime) => {
+                const url = anime.cover || FALLBACK_COVER;
+                if (seen.has(url)) return;
+                seen.add(url);
+                uniqueAnimes.push(anime);
+            });
+        });
+
+        let completed = 0;
+        let failed = 0;
+        let cursor = 0;
+        const concurrency = Math.min(8, uniqueAnimes.length || 1);
+
+        async function worker() {
+            while (cursor < uniqueAnimes.length) {
+                const index = cursor;
+                cursor += 1;
+                const image = await getRenderableImage(uniqueAnimes[index]);
+                if (!image) failed += 1;
+                completed += 1;
+
+                if (completed % 6 === 0 || completed === uniqueAnimes.length) {
+                    onProgress(completed, uniqueAnimes.length, failed);
+                    await yieldToBrowser();
+                }
+            }
+        }
+
+        await Promise.all(Array.from({ length: concurrency }, () => worker()));
+        return { total: uniqueAnimes.length, failed };
+    }
+
+    function wrapTitle(ctx, text, maxWidth, maxLines) {
+        const chars = [...(text || "")];
+        const lines = [];
+        let current = "";
+
+        chars.forEach((char) => {
+            const next = current + char;
+            if (current && ctx.measureText(next).width > maxWidth) {
+                lines.push(current);
+                current = char;
+            } else {
+                current = next;
+            }
+        });
+
+        if (current) lines.push(current);
+        if (lines.length <= maxLines) return lines;
+
+        const trimmed = lines.slice(0, maxLines);
+        let last = trimmed[maxLines - 1];
+        while (last.length > 0 && ctx.measureText(`${last}...`).width > maxWidth) {
+            last = last.slice(0, -1);
+        }
+        trimmed[maxLines - 1] = `${last || ""}...`;
+        return trimmed;
+    }
+
+    function calculateExportDimensions(sections, preset) {
+        const width = preset.pagePadding * 2 + preset.columns * preset.cardWidth + (preset.columns - 1) * preset.gap;
+        let height = preset.pagePadding + preset.headerHeight;
+
+        sections.forEach((group) => {
+            const rows = Math.max(1, Math.ceil(group.animes.length / preset.columns));
+            height += preset.yearHeight;
+            height += rows * (preset.cardHeight + preset.titleHeight);
+            height += Math.max(0, rows - 1) * preset.gap;
+            height += preset.sectionGap;
+        });
+
+        height += 20;
+        return { width, height };
+    }
+
+    function pickCanvasScale(width, height, preferredScale) {
+        let scale = preferredScale;
+        while ((width * scale > 16384 || height * scale > 16384 || width * height * scale * scale > 80_000_000) && scale > 1) {
+            scale -= 0.1;
+        }
+        return Math.max(1, Number(scale.toFixed(2)));
+    }
+
+    function drawRoundedRect(ctx, x, y, width, height, radius, fillStyle) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+
+    function drawPlaceholder(ctx, x, y, width, height) {
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, "#334155");
+        gradient.addColorStop(1, "#1e293b");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, width, height);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "bold 12px Microsoft YaHei";
+        ctx.textAlign = "center";
+        ctx.fillText("NO IMAGE", x + width / 2, y + height / 2);
+    }
+
+    async function drawCard(ctx, anime, isWatched, x, y, preset) {
+        const image = await getRenderableImage(anime);
+
+        ctx.save();
+        drawRoundedRect(ctx, x, y, preset.cardWidth, preset.cardHeight + preset.titleHeight, 10, "#0f172a");
+        ctx.beginPath();
+        ctx.moveTo(x + 10, y);
+        ctx.lineTo(x + preset.cardWidth - 10, y);
+        ctx.quadraticCurveTo(x + preset.cardWidth, y, x + preset.cardWidth, y + 10);
+        ctx.lineTo(x + preset.cardWidth, y + preset.cardHeight + preset.titleHeight);
+        ctx.lineTo(x, y + preset.cardHeight + preset.titleHeight);
+        ctx.lineTo(x, y + 10);
+        ctx.quadraticCurveTo(x, y, x + 10, y);
+        ctx.closePath();
+        ctx.clip();
+
+        if (!isWatched && "filter" in ctx) {
+            ctx.filter = "grayscale(1) brightness(0.45)";
+            ctx.globalAlpha = 0.78;
+        }
+
+        if (image) {
+            ctx.drawImage(image, x, y, preset.cardWidth, preset.cardHeight);
+        } else {
+            drawPlaceholder(ctx, x, y, preset.cardWidth, preset.cardHeight);
+        }
+
+        ctx.filter = "none";
+        ctx.globalAlpha = 1;
+
+        const titleY = y + preset.cardHeight;
+        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+        ctx.fillRect(x, titleY, preset.cardWidth, preset.titleHeight);
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 10px Microsoft YaHei";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const lines = wrapTitle(ctx, anime.title, preset.cardWidth - 12, 2);
+        const totalHeight = lines.length * 12;
+        let lineY = titleY + preset.titleHeight / 2 - totalHeight / 2 + 6;
+        lines.forEach((line) => {
+            ctx.fillText(line, x + preset.cardWidth / 2, lineY);
+            lineY += 12;
+        });
+
+        if (isWatched) {
+            ctx.strokeStyle = "rgba(236, 72, 153, 0.95)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 1, y + 1, preset.cardWidth - 2, preset.cardHeight + preset.titleHeight - 2);
+        }
+        ctx.restore();
+    }
+
+    async function renderExportCanvas(mode) {
+        const sections = getExportSections(mode);
+        if (sections.length === 0) {
+            throw new Error(mode === "watched" ? "当前没有已看动画可导出。" : "当前没有可导出的数据。");
+        }
+
+        setStatus("正在预加载封面...");
+        const warmResult = await warmExportImages(sections, (done, total, failed) => {
+            setStatus(`正在预加载封面 ${done}/${total}${failed ? `，失败 ${failed}` : ""}...`);
+        });
+
+        const base = calculateExportDimensions(sections, EXPORT_PRESET);
+        const scale = pickCanvasScale(base.width, base.height, EXPORT_PRESET.preferredScale);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(base.width * scale);
+        canvas.height = Math.floor(base.height * scale);
+
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.scale(scale, scale);
+
+        const background = ctx.createLinearGradient(0, 0, 0, base.height);
+        background.addColorStop(0, "#111827");
+        background.addColorStop(0.52, "#0f172a");
+        background.addColorStop(1, "#020617");
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, base.width, base.height);
+
+        const count = sections.reduce((sum, group) => sum + group.animes.length, 0);
+        const rank = getRank(watchedIds.length);
+        ctx.fillStyle = "#ec4899";
+        ctx.font = "bold 28px Microsoft YaHei";
+        ctx.textAlign = "left";
+        ctx.fillText("你看过的动画番剧（1998~2026）", EXPORT_PRESET.pagePadding, 42);
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 16px Microsoft YaHei";
+        ctx.fillText(`观看数：${watchedIds.length}`, EXPORT_PRESET.pagePadding, 70);
+        ctx.fillStyle = rank.color;
+        ctx.fillText(`评分：${rank.label}`, EXPORT_PRESET.pagePadding + 170, 70);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px Microsoft YaHei";
+        ctx.fillText(`范围：${mode === "watched" ? "仅看过" : "全部"} · 项目数：${count} · 导出时间：${new Date().toLocaleString("zh-CN")}`, EXPORT_PRESET.pagePadding, 92);
+
+        let y = EXPORT_PRESET.pagePadding + EXPORT_PRESET.headerHeight;
+        let drawn = 0;
+
+        for (const group of sections) {
+            ctx.fillStyle = "#f8fafc";
+            ctx.font = "bold 22px Microsoft YaHei";
+            ctx.fillText(`# ${group.year}`, EXPORT_PRESET.pagePadding, y + 10);
+            y += EXPORT_PRESET.yearHeight;
+
+            for (let index = 0; index < group.animes.length; index += 1) {
+                const anime = group.animes[index];
+                const row = Math.floor(index / EXPORT_PRESET.columns);
+                const column = index % EXPORT_PRESET.columns;
+                const x = EXPORT_PRESET.pagePadding + column * (EXPORT_PRESET.cardWidth + EXPORT_PRESET.gap);
+                const cardY = y + row * (EXPORT_PRESET.cardHeight + EXPORT_PRESET.titleHeight + EXPORT_PRESET.gap);
+                await drawCard(ctx, anime, watchedIds.includes(anime.id), x, cardY, EXPORT_PRESET);
+                drawn += 1;
+
+                if (drawn % 10 === 0 || drawn === count) {
+                    setStatus(`正在绘制图片 ${drawn}/${count}${warmResult.failed ? `，封面失败 ${warmResult.failed}` : ""}...`);
+                    await yieldToBrowser();
+                }
+            }
+
+            const rows = Math.ceil(group.animes.length / EXPORT_PRESET.columns);
+            y += rows * (EXPORT_PRESET.cardHeight + EXPORT_PRESET.titleHeight) + Math.max(0, rows - 1) * EXPORT_PRESET.gap;
+            y += EXPORT_PRESET.sectionGap;
+        }
+
+        return { canvas, count, failed: warmResult.failed, filename: `${EXPORT_PRESET.filePrefix}-${Date.now()}.png` };
+    }
+
+    async function saveCanvas(canvas, filename) {
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((result) => {
+                if (result) resolve(result);
+                else reject(new Error("图片导出失败。"));
+            }, "image/png");
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function exportPageImage(mode) {
+        if (exportInProgress) return;
+        if (!animeData.length) {
+            setStatus("数据尚未加载完成。", true);
+            return;
+        }
+
+        const button = document.getElementById("export-btn");
+        const loader = document.getElementById("loader");
+
+        exportInProgress = true;
+        button.disabled = true;
+        loader.classList.remove("hidden");
+
+        try {
+            const { canvas, count, failed, filename } = await renderExportCanvas(mode);
+            setStatus("正在生成下载文件...");
+            await saveCanvas(canvas, filename);
+            setStatus(`导出完成：${filename}，范围：${mode === "watched" ? "仅看过" : "全部"}，共 ${count} 项${failed ? `，${failed} 张封面使用了占位图` : ""}。`);
+        } catch (error) {
+            console.error(error);
+            setStatus(error.message || "导出失败。", true);
+        } finally {
+            exportInProgress = false;
+            button.disabled = false;
+            loader.classList.add("hidden");
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
