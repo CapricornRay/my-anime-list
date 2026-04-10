@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1998-2026 动画生涯个人表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+        
+        /* 页面顶部预留出悬浮栏的高度 */
+        .content-wrapper { padding-top: 120px; }
+
+        .anime-card {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: grayscale(100%) brightness(0.4);
+            opacity: 0.7;
+        }
+        
+        .anime-card.active {
+            filter: grayscale(0%) brightness(1);
+            opacity: 1;
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+        }
+
+        /* 粘性年份标题 - 权重需低于悬浮导航栏 */
+        .year-header {
+            position: sticky;
+            top: 100px; /* 紧贴在悬浮栏下方 */
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            z-index: 30;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .title-overlay {
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+        }
+
+        .btn-active { background-color: #ec4899 !important; color: white !important; }
+
+        /* 等级勋章动画 */
+        .rank-badge {
+            transition: all 0.5s ease;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .size-small .anime-title { font-size: 0.6rem; line-height: 0.75rem; }
+        .size-medium .anime-title { font-size: 0.75rem; line-height: 1rem; }
+        .size-large .anime-title { font-size: 0.9rem; line-height: 1.1rem; }
+
+        /* 隐藏滚动条但保留功能 */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <!-- 顶部悬浮控制中心 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 shadow-2xl">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- 分组 1: 统计与等级 -->
+            <div class="flex items-center gap-4 md:gap-8">
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Watched</span>
+                    <span class="text-2xl font-mono font-black text-white" id="stats-count">0</span>
+                </div>
+                <div id="rank-container" class="rank-badge px-4 py-1.5 rounded-xl border-2 font-black italic tracking-wider text-sm md:text-base">
+                    CALC...
+                </div>
+            </div>
+
+            <!-- 分组 2: 尺寸切换 -->
+            <div class="hidden md:flex items-center bg-slate-800/50 p-1 rounded-2xl border border-slate-700">
+                <button onclick="changeSize('small')" id="btn-small" class="px-4 py-1.5 text-xs rounded-xl transition">小</button>
+                <button onclick="changeSize('medium')" id="btn-medium" class="px-4 py-1.5 text-xs rounded-xl btn-active transition">中</button>
+                <button onclick="changeSize('large')" id="btn-large" class="px-4 py-1.5 text-xs rounded-xl transition">大</button>
+            </div>
+
+            <!-- 分组 3: 导出操作 -->
+            <div class="flex items-center gap-3">
+                <button onclick="saveAsImage()" id="export-btn" class="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition transform active:scale-95 shadow-lg shadow-pink-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=" box-shadow: 4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span class="hidden sm:inline">导出长图</span>
+                    <div id="loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto content-wrapper">
+        <!-- 页面主标题 -->
+        <header class="text-center mb-12">
+            <h1 class="text-6xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-4">
+                ANIME ERA
+            </h1>
+            <p class="text-slate-500 font-mono tracking-widest text-sm">CHRONICLE 1998 - 2026</p>
+        </header>
+
+        <!-- 采集区域 -->
+        <div id="capture-area" class="bg-[#0f172a] p-6 rounded-3xl">
+            <!-- 导出时显示的精美水印头部 -->
+            <div class="hidden show-on-export flex justify-between items-center mb-12 border-b-2 border-slate-800 pb-8">
+                <div>
+                    <h2 class="text-5xl font-black italic text-pink-500 tracking-tighter">MY ANIME ERA</h2>
+                    <p class="text-slate-400 font-mono mt-2 uppercase tracking-[0.3em]">Checked List 1998-2026</p>
+                </div>
+                <div class="bg-slate-900 border-2 border-pink-500/30 p-4 rounded-2xl text-right">
+                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Level Status</p>
+                    <p id="export-rank-text" class="text-3xl font-black italic"></p>
+                    <p class="text-pink-500 font-mono text-xs mt-1">Total: <span id="export-count-text"></span></p>
+                </div>
+            </div>
+
+            <div id="main-list" class="space-y-16">
+                <!-- 数据动态注入 -->
+            </div>
+
+            <div class="mt-20 pt-10 border-t border-slate-800 text-center text-slate-700 italic font-mono text-sm">
+                Generated by Anime Checklist • Stay Weeb
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'anime_watched_list_v5';
+        let watchedIds = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        let currentSize = 'medium';
+
+        const sizeMap = {
+            'small': 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 size-small',
+            'medium': 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 size-medium',
+            'large': 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 size-large'
+        };
+
+        function getRankInfo(count) {
+            if (count <= 50) return { label: "拉完了", color: "border-slate-600 text-slate-400 bg-slate-800/50" };
+            if (count <= 200) return { label: "NPC", color: "border-blue-500/50 text-blue-400 bg-blue-900/20" };
+            if (count <= 300) return { label: "人上人", color: "border-yellow-500/50 text-yellow-500 bg-yellow-900/20" };
+            if (count <= 500) return { label: "顶级", color: "border-purple-500/50 text-purple-400 bg-purple-900/20" };
+            return { label: "夯", color: "border-red-600 text-red-500 bg-red-900/30" };
+        }
+
+        async function init() {
+            try {
+                const response = await fetch('anime_data.json');
+                const data = await response.json();
+                const container = document.getElementById('main-list');
+                
+                data.forEach(yearGroup => {
+                    const section = document.createElement('section');
+                    section.innerHTML = `
+                        <div class="year-header">
+                            <h2 class="text-3xl font-black italic tracking-tighter">
+                                <span class="text-pink-500 mr-2">#</span>${yearGroup.year}
+                            </h2>
+                        </div>
+                        <div class="anime-grid grid ${sizeMap[currentSize]} mt-8 transition-all duration-700">
+                            ${yearGroup.animes.map(anime => renderCard(anime)).join('')}
+                        </div>
+                    `;
+                    container.appendChild(section);
+                });
+                updateStats();
+            } catch (err) {
+                console.error("加载数据失败:", err);
+            }
+        }
+
+        function renderCard(anime) {
+            const isWatched = watchedIds.includes(anime.id);
+            // 检查图片地址是否有效
+            const coverUrl = anime.cover || 'https://via.placeholder.com/150x210?text=No+Image';
+            
+            return `
+            <div class="anime-card ${isWatched ? 'active' : ''} relative aspect-[3/4.2] rounded-xl overflow-hidden bg-slate-800" 
+             onclick="toggleLit(${anime.id}, this)">
+            <img src="${coverUrl}" 
+                 alt="${anime.title}"
+                 class="w-full h-full object-cover" 
+                 loading="lazy"
+                 referrerpolicy="no-referrer"
+                 onerror="this.src='https://via.placeholder.com/150x210?text=Error'">
+            <div class="title-overlay absolute inset-x-0 bottom-0 p-3 pt-8 flex items-end justify-center text-center">
+                <span class="anime-title text-white font-black leading-tight line-clamp-2 drop-shadow-2xl">
+                    ${anime.title}
+                </span>
+            </div>
+            </div>
+            `;
+        }
+
+        function toggleLit(id, el) {
+            const idx = watchedIds.indexOf(id);
+            if (idx > -1) {
+                watchedIds.splice(idx, 1);
+                el.classList.remove('active');
+            } else {
+                watchedIds.push(id);
+                el.classList.add('active');
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(watchedIds));
+            updateStats();
+        }
+
+        function updateStats() {
+            const count = watchedIds.length;
+            document.getElementById('stats-count').innerText = count;
+            document.getElementById('export-count-text').innerText = count;
+
+            const rank = getRankInfo(count);
+            const rankEl = document.getElementById('rank-container');
+            rankEl.innerText = rank.label;
+            rankEl.className = `rank-badge px-4 py-1.5 rounded-xl border-2 font-black italic tracking-wider text-sm md:text-base ${rank.color}`;
+            
+            document.getElementById('export-rank-text').innerText = rank.label;
+            document.getElementById('export-rank-text').className = `text-3xl font-black italic ${rank.color.split(' ')[1]}`;
+        }
+
+        function changeSize(size) {
+            currentSize = size;
+            ['small', 'medium', 'large'].forEach(s => {
+                document.getElementById(`btn-${s}`).classList.toggle('btn-active', s === size);
+            });
+            document.querySelectorAll('.anime-grid').forEach(g => {
+                g.className = `anime-grid grid ${sizeMap[size]} mt-8 transition-all duration-700`;
+            });
+        }
+
+        async function saveAsImage() {
+            const btn = document.getElementById('export-btn');
+            const loader = document.getElementById('loader');
+            const area = document.getElementById('capture-area');
+
+            btn.disabled = true;
+            loader.classList.remove('hidden');
+            const exportHeader = area.querySelector('.show-on-export');
+            exportHeader.classList.remove('hidden');
+
+            try {
+                const canvas = await html2canvas(area, {
+                    useCORS: true,
+                    backgroundColor: '#0f172a',
+                    scale: 1.5,
+                    logging: false,
+                    windowWidth: 1400 
+                });
+
+                const link = document.createElement('a');
+                link.download = `AnimeEra-${document.getElementById('rank-container').innerText}-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                alert("生成长图失败，建议尝试切换‘中’或‘大’尺寸再次生成。");
+            } finally {
+                exportHeader.classList.add('hidden');
+                btn.disabled = false;
+                loader.classList.add('hidden');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
