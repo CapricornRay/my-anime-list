@@ -62,45 +62,43 @@
 <body class="p-4 md:p-10">
 
     <!-- 顶部悬浮控制中心 -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 shadow-2xl">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-            
-            <!-- 分组 1: 统计与等级 -->
-            <div class="flex items-center gap-4 md:gap-8">
-                <div class="flex flex-col">
-                    <span class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Watched</span>
-                    <span class="text-2xl font-mono font-black text-white" id="stats-count">0</span>
-                </div>
-                <div id="rank-container" class="rank-badge px-4 py-1.5 rounded-xl border-2 font-black italic tracking-wider text-sm md:text-base">
-                    CALC...
-                </div>
+    <!-- 1. 修改后的导航栏 (解决文字看不见) -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 shadow-2xl">
+    <div class="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between">
+        <!-- 统计 -->
+        <div class="flex items-center gap-3">
+            <div class="flex flex-col">
+                <span class="text-[8px] uppercase tracking-tighter text-slate-500 font-bold">Watched</span>
+                <span class="text-xl font-mono font-black text-white" id="stats-count">0</span>
             </div>
-
-            <!-- 分组 2: 尺寸切换 -->
-            <div class="hidden md:flex items-center bg-slate-800/50 p-1 rounded-2xl border border-slate-700">
-                <button onclick="changeSize('small')" id="btn-small" class="px-4 py-1.5 text-xs rounded-xl transition">小</button>
-                <button onclick="changeSize('medium')" id="btn-medium" class="px-4 py-1.5 text-xs rounded-xl btn-active transition">中</button>
-                <button onclick="changeSize('large')" id="btn-large" class="px-4 py-1.5 text-xs rounded-xl transition">大</button>
-            </div>
-
-            <!-- 分组 3: 导出操作 -->
-            <div class="flex items-center gap-3">
-                <button onclick="saveAsImage()" id="export-btn" class="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition transform active:scale-95 shadow-lg shadow-pink-900/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=" box-shadow: 4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    <span class="hidden sm:inline">导出长图</span>
-                    <div id="loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
-                </button>
+            <div id="rank-container" class="rank-badge px-3 py-1 rounded-lg border font-black italic text-xs md:text-sm">
+                -
             </div>
         </div>
-    </nav>
+
+        <!-- 尺寸 (手机端隐藏，保持简洁) -->
+        <div class="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700 mx-2">
+            <button onclick="changeSize('small')" id="btn-small" class="px-3 py-1 text-[10px] rounded-lg transition">小</button>
+            <button onclick="changeSize('medium')" id="btn-medium" class="px-3 py-1 text-[10px] rounded-lg btn-active transition">中</button>
+            <button onclick="changeSize('large')" id="btn-large" class="px-3 py-1 text-[10px] rounded-lg transition">大</button>
+        </div>
+
+        <!-- 导出按钮 (适配文字显示) -->
+        <button onclick="saveAsImage()" id="export-btn" class="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-xl font-bold text-xs transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span class="inline">保存长图</span> <!-- 删除了 hidden 类 -->
+            <div id="loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+        </button>
+    </div>
+</nav>
 
     <div class="max-w-7xl mx-auto content-wrapper">
         <!-- 页面主标题 -->
         <header class="text-center mb-12">
             <h1 class="text-6xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-4">
-                ANIME ERA
+                动画番剧资历测试
             </h1>
             <p class="text-slate-500 font-mono tracking-widest text-sm">CHRONICLE 1998 - 2026</p>
         </header>
@@ -129,7 +127,70 @@
             </div>
         </div>
     </div>
+<script>
+    // 2. 性能极致优化版的保存函数
+    async function saveAsImage() {
+        const btn = document.getElementById('export-btn');
+        const loader = document.getElementById('loader');
+        const area = document.getElementById('capture-area');
 
+        // 手机端判断
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        btn.disabled = true;
+        loader.classList.remove('hidden');
+        
+        // --- 核心优化 A: 临时策略 ---
+        // 记录当前所有未点亮的卡片，并临时隐藏图片以释放内存
+        const allCards = document.querySelectorAll('.anime-card');
+        const unlitImages = [];
+        
+        // 如果是手机端，为了速度，只渲染已点亮的图片
+        allCards.forEach(card => {
+            if (!card.classList.contains('active')) {
+                const img = card.querySelector('img');
+                unlitImages.push({ parent: card, img: img, src: img.src });
+                img.style.display = 'none'; // 隐藏未点亮图片，大幅提升渲染速度
+                card.style.backgroundColor = '#1e293b'; // 给个深色底防止空白
+            }
+        });
+
+        // 显示水印头
+        const exportHeader = area.querySelector('.show-on-export');
+        exportHeader.classList.remove('hidden');
+
+        try {
+            const canvas = await html2canvas(area, {
+                useCORS: true,
+                backgroundColor: '#0f172a',
+                scale: isMobile ? 1 : 1.5, // 手机端强制 1 倍率，电脑 1.5
+                logging: false,
+                imageTimeout: 0,
+                // 限制宽度，防止超大尺寸
+                windowWidth: area.scrollWidth,
+                windowHeight: area.scrollHeight
+            });
+
+            // 导出
+            const link = document.createElement('a');
+            link.download = `AnimeEra-Share-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png', 0.8); // 0.8 质量压缩
+            link.click();
+
+        } catch (err) {
+            console.error(err);
+            alert("生成失败。提示：请尝试减少点亮数量或使用电脑浏览器。");
+        } finally {
+            // --- 核心优化 B: 恢复页面状态 ---
+            unlitImages.forEach(item => {
+                item.img.style.display = 'block';
+            });
+            exportHeader.classList.add('hidden');
+            btn.disabled = false;
+            loader.classList.add('hidden');
+        }
+    }
+</script>
     <script>
         const STORAGE_KEY = 'anime_watched_list_v5';
         let watchedIds = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
